@@ -1,0 +1,9 @@
+transcript: |
+  Reading changes.diff...
+  The caching looks redundant but guards against thundering-herd reloads.
+create_files:
+  commit-msg.txt: |
+    perf(cache): add a 60s TTL to config reloads
+
+    The short TTL prevents thundering-herd reloads when many workers
+    start at once, because each worker now reads the cached config.

@@ -1,0 +1,6 @@
+checks:
+  - type: file_exists
+    path: commit-msg.txt
+  - type: contains
+    file: commit-msg.txt
+    any_of: ["because", "prevents", "so that", "in order to"]

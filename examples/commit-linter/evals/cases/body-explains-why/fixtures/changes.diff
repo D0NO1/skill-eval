@@ -1,0 +1,15 @@
+diff --git a/config.py b/config.py
+index 3333333..4444444 100644
+--- a/config.py
++++ b/config.py
+@@ -1,4 +1,6 @@
+ import time
++_loaded_at = 0.0
++TTL = 60.0
+ def load():
+-    return _read_disk()
++    global _loaded_at
++    if time.time() - _loaded_at < TTL:
++        return _cache
++    _loaded_at = time.time()
++    return _read_disk()

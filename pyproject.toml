@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skillev"
+version = "0.1.0"
+description = "Regression test harness for agent skills: tasks + graders + baseline gates."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["agent", "skills", "eval", "regression", "testing", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = ["pyyaml>=6.0"]
+
+[project.scripts]
+skillev = "skillev.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

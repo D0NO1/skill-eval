@@ -1,0 +1,12 @@
+diff --git a/uploader.py b/uploader.py
+index 1111111..2222222 100644
+--- a/uploader.py
++++ b/uploader.py
+@@ -10,7 +10,12 @@ def upload(batch):
+-    push(batch)
++    for attempt in range(3):
++        try:
++            push(batch)
++            break
++        except TransientNetworkError:
++            sleep(2 ** attempt)

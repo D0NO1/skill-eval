@@ -1,0 +1,9 @@
+checks:
+  - type: file_exists
+    path: commit-msg.txt
+  - type: regex
+    file: commit-msg.txt
+    pattern: '^(feat|fix|docs|refactor|test|chore)(\([^)]*\))?: .+'
+  - type: regex
+    file: transcript
+    pattern: '(?i)diff'

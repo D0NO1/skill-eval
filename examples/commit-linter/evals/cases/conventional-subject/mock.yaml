@@ -1,0 +1,10 @@
+transcript: |
+  Reading changes.diff...
+  The change adds exponential backoff to the upload retry loop.
+  Writing commit-msg.txt
+create_files:
+  commit-msg.txt: |
+    fix(uploader): retry failed uploads with exponential backoff
+
+    Retrying up to 3 times prevents transient network errors from
+    failing the whole batch job.
