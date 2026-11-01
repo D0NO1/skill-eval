@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import __version__
 from . import store
+from .htmlreport import render_html
 from .report import compare, render
 from .runner import run_suite
 from .scaffold import SCAFFOLD_FILES, write_scaffold
@@ -52,9 +53,62 @@ def cmd_run(args) -> int:
     out = store.save(skill_dir, result)
     if not args.json:
         _print(f"saved: {out.relative_to(skill_dir)}")
+    if args.html:
+        Path(args.html).write_text(
+            render_html(result, diffs, baseline.run_id if baseline else None), encoding="utf-8"
+        )
+        _print(f"html report: {args.html}")
 
     if diffs is not None and any(d.status == "gate" for d in diffs):
         return 1
+    return 0
+
+
+def cmd_gate(args) -> int:
+    """Compare the newest stored run against a baseline without re-running."""
+    skill_dir = Path(args.dir or ".").resolve()
+    runs = store.list_runs(skill_dir)
+    if not runs:
+        _print("no runs yet — run `skillev run` first")
+        return 2
+    baseline_id = args.against or (runs[-2].stem if len(runs) >= 2 else None)
+    if baseline_id is None:
+        _print("need at least 2 runs to gate (nothing to compare against)")
+        return 2
+    current = store.load(skill_dir, runs[-1].stem)
+    baseline = store.load(skill_dir, baseline_id)
+    if current is None or baseline is None:
+        _print(f"run not found: {baseline_id}")
+        return 2
+    diffs, failed = compare(current, baseline)
+    _print(render(current, diffs, baseline.run_id))
+    return 1 if failed else 0
+
+
+def cmd_show(args) -> int:
+    """Show one case's check details and transcript from a stored run."""
+    skill_dir = Path(args.dir or ".").resolve()
+    runs = store.list_runs(skill_dir)
+    if not runs:
+        _print("no runs yet — run `skillev run` first")
+        return 2
+    run_id = args.run or runs[-1].stem
+    result = store.load(skill_dir, run_id)
+    if result is None:
+        _print(f"run not found: {run_id}")
+        return 2
+    matches = [c for c in result.cases if c.case == args.case]
+    if not matches:
+        _print(f"case '{args.case}' not found in run {run_id}.")
+        _print("available: " + ", ".join(c.case for c in result.cases))
+        return 2
+    c = matches[0]
+    _print(f"case: {c.case}   run: {run_id}   score: {c.score}   grade: {c.grade}")
+    for ck in c.checks:
+        mark = "PASS" if ck.passed else "FAIL"
+        _print(f"  [{mark}] {ck.type}" + (f" — {ck.detail}" if ck.detail else ""))
+    _print("\n--- transcript ---")
+    _print(c.transcript or "(empty)")
     return 0
 
 
@@ -96,7 +150,21 @@ def main(argv=None) -> int:
     p_run.add_argument("--agent", help="override agent adapter (mock, claude)")
     p_run.add_argument("--no-baseline", action="store_true", help="skip regression comparison")
     p_run.add_argument("--json", action="store_true", help="machine-readable output")
+    p_run.add_argument("--html", metavar="FILE", help="also write a self-contained HTML report")
     p_run.set_defaults(fn=cmd_run)
+
+    p_gate = sub.add_parser(
+        "gate", help="compare the newest run against a baseline; exit 1 on regression"
+    )
+    p_gate.add_argument("dir", nargs="?", help="skill repo directory (default: .)")
+    p_gate.add_argument("--against", help="baseline run id (default: second-newest run)")
+    p_gate.set_defaults(fn=cmd_gate)
+
+    p_show = sub.add_parser("show", help="show one case's checks and transcript from a run")
+    p_show.add_argument("case", help="case name")
+    p_show.add_argument("dir", nargs="?", help="skill repo directory (default: .)")
+    p_show.add_argument("--run", help="run id (default: newest run)")
+    p_show.set_defaults(fn=cmd_show)
 
     p_hist = sub.add_parser("history", help="list past runs")
     p_hist.add_argument("dir", nargs="?", help="skill repo directory (default: .)")

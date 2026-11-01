@@ -103,13 +103,32 @@ checks:
 | `contains` | text appears in a file or the transcript | `file` (`transcript` for the log), `any_of` / `all_of` / `text` |
 | `regex` | the pattern matches (multiline) | `file`, `pattern` |
 | `command` | a shell command exits 0 | `run` |
-| `rubric` | an LLM judge scores the run ≥ `min_score` (1–5) | `model`, `rubric`, `min_score` |
+| `rubric` | an LLM judge scores the run ≥ `min_score` (1–5) | `model`, `rubric`, `min_score`, `samples` |
 
 A case's score is the mean of its check scores (deterministic checks are 0/1,
 a rubric scores `n/5`), mapped to letter grades **A ≥ 90, B ≥ 75, C ≥ 60, else D**.
 
 Rubric checks need `SKILL_EVAL_API_KEY` (and optionally `SKILL_EVAL_BASE_URL`,
 default `https://api.openai.com/v1`).
+
+### Cutting judge noise
+
+LLM judges are noisy: the same run can score 5, then 2. Two defenses:
+
+1. **Deterministic first.** File/regex/command checks carry no judge variance —
+   only opt into `rubric` where taste actually matters.
+2. **Sample ensembling.** Set `samples: 3` on a rubric check and the case is
+   judged three independent times at temperature 0.7; the **median** score wins,
+   so one outlier judgement can't flip your gate:
+
+```yaml
+- type: rubric
+  model: gpt-4o-mini
+  samples: 3        # 3 independent judgements, median wins
+  min_score: 3
+  rubric: |
+    Score 1-5: is the explanation technically correct and specific?
+```
 
 ## Regression gate
 
@@ -125,8 +144,54 @@ New cases are informational; removed cases are reported. Wire it into CI:
 - run: skillev run .
 ```
 
+Or re-gate the newest stored runs without re-running the agent (e.g. in a
+separate CI job, after downloading runs as artifacts):
+
+```bash
+skillev gate                    # newest run vs second-newest
+skillev gate --against <run-id> # explicit baseline
+```
+
+Debugging a red case:
+
+```bash
+skillev show conventional-subject   # check-by-check detail + agent transcript
+skillev history                     # list past runs
+```
+
+Add `--html report.html` to `skillev run` for a self-contained HTML report
+with grades, check details and transcripts.
+
 Typical workflow: change your skill, run the suite, iterate until the gate is
 green, commit.
+
+## Use it from any workflow
+
+```yaml
+- uses: D0NO1/skill-eval@main
+  with:
+    dir: my-skill
+```
+
+The composite action installs skillev and runs the suite; a regression fails
+the job.
+
+## FAQ
+
+**How is this different from promptfoo / LangSmith?**
+Those are general agent/prompt eval platforms — bring your own harness, learn
+their DSL. skill-eval is file-native to the SKILL.md ecosystem: cases live
+next to the skill, graders are one small YAML, the mock agent makes CI
+free, and the regression gate is the point. It's `pytest` for skills, not a
+platform.
+
+**Do I need an API key?**
+No — the whole suite, including this repo's own CI, runs on the `mock`
+agent. You only need a key for `rubric` checks and real-agent adapters.
+
+**Which agents can run my skill?**
+Anything with an adapter. Built in: `mock`, `claude` (headless Claude Code).
+Writing one is a single class — PRs welcome.
 
 ## Agents
 
@@ -142,17 +207,18 @@ Custom adapters are one class: subclass `AgentAdapter`, implement
 ## CLI
 
 ```text
-skillev init [dir]       scaffold evals/ in a skill repo
-skillev run  [dir]       run the suite (options: --agent, --no-baseline, --json)
-skillev history [dir]    list past runs
+skillev init [dir]          scaffold evals/ in a skill repo
+skillev run  [dir]          run the suite (--agent, --no-baseline, --json, --html FILE)
+skillev gate [dir]          re-gate newest run vs baseline without re-running (--against ID)
+skillev show <case> [dir]   inspect one case's checks + transcript (--run ID)
+skillev history [dir]       list past runs
 ```
 
 ## Roadmap
 
-- [ ] judge ensembling (n-sample self-consistency to cut judge noise)
-- [ ] `skillev gate --against <branch>` for explicit CI baselines
-- [ ] transcript snapshots for debugging failed cases
-- [ ] HTML report
+- [ ] cross-machine baselines: push/pull run artifacts to a git branch (`skillev push/fetch`)
+- [ ] more adapters: OpenAI Agents SDK, OpenClaw, generic OpenAI-compatible agent loop
+- [ ] judge calibration: estimate a grader's stability on a fixed suite
 - [ ] skill-marketplace integrations
 
 ## Contributing

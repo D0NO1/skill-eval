@@ -44,13 +44,13 @@ class CaseResult:
     transcript: str = ""
 
     def to_dict(self) -> dict:
-        d = {
+        return {
             "case": self.case,
             "score": self.score,
             "grade": self.grade,
             "checks": [vars(c) for c in self.checks],
+            "transcript": self.transcript,
         }
-        return d
 
 
 def grade_case(case: Case, workspace, transcript: str) -> CaseResult:

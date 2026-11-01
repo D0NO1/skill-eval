@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skillev"
-version = "0.1.0"
+version = "0.2.0"
 description = "Regression test harness for agent skills: tasks + graders + baseline gates."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,6 +21,12 @@ dependencies = ["pyyaml>=6.0"]
 
 [project.scripts]
 skillev = "skillev.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/D0NO1/skill-eval"
+Repository = "https://github.com/D0NO1/skill-eval"
+Issues = "https://github.com/D0NO1/skill-eval/issues"
+Changelog = "https://github.com/D0NO1/skill-eval/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

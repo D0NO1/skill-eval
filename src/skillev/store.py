@@ -14,20 +14,37 @@ def runs_dir(skill_dir: Path) -> Path:
 def save(skill_dir: Path, result: SuiteResult) -> Path:
     d = runs_dir(skill_dir)
     d.mkdir(parents=True, exist_ok=True)
+    # Keep timestamps unique: bump the second until the run id is free, so
+    # filenames stay clean IDs and sort order == save order == time order.
     out = d / f"{result.run_id}.json"
-    n = 1
-    while out.exists():  # same-second runs: keep every run
-        n += 1
-        out = d / f"{result.run_id}-{n}.json"
+    if out.exists():
+        from datetime import datetime, timedelta
+
+        dt = datetime.strptime(result.timestamp, "%Y%m%dT%H%M%S")
+        while out.exists():
+            dt += timedelta(seconds=1)
+            result.timestamp = dt.strftime("%Y%m%dT%H%M%S")
+            out = d / f"{result.run_id}.json"
     out.write_text(json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
     return out
 
 
 def list_runs(skill_dir: Path) -> list[Path]:
+    """All runs, oldest first. Sorted by the timestamp stored *inside* each
+    file — filenames may carry -2/-3 suffixes from same-second runs, so the
+    filename itself is only an ID, not an ordering key."""
     d = runs_dir(skill_dir)
     if not d.is_dir():
         return []
-    return sorted(d.glob("*.json"))
+
+    def key(p: Path) -> tuple:
+        try:
+            ts = json.loads(p.read_text(encoding="utf-8")).get("timestamp", "")
+        except Exception:
+            ts = ""
+        return (ts, p.name)
+
+    return sorted(d.glob("*.json"), key=key)
 
 
 def _from_dict(data: dict) -> SuiteResult:
@@ -45,7 +62,7 @@ def _from_dict(data: dict) -> SuiteResult:
                 score=c.get("score", 0.0),
                 grade=c.get("grade", "D"),
                 checks=[CheckResultDTO(**ck) for ck in c.get("checks", [])],
-                transcript="",
+                transcript=c.get("transcript", ""),
             )
             for c in data.get("cases", [])
         ],

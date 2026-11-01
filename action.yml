@@ -1,0 +1,26 @@
+name: skill-eval
+description: Regression-test an agent skill with skillev in your workflow.
+branding:
+  icon: check-circle
+  color: green
+inputs:
+  dir:
+    description: Skill directory to test
+    required: false
+    default: "."
+  python-version:
+    description: Python version used to run skillev
+    required: false
+    default: "3.12"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install skillev
+      shell: bash
+      run: pip install git+https://github.com/D0NO1/skill-eval.git
+    - name: Run eval suite
+      shell: bash
+      run: skillev run ${{ inputs.dir }}
